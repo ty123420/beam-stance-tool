@@ -1,5 +1,5 @@
--beamng-suspension-modifier
-Modify, scale, and optimize vehicle suspension geometry, camber, toe, track width, and ride height in BeamNG.drive vehicle mods (.zip archives containing .jbeam files) using an interactive web application and JBeam parsing tools. Use when the user asks to modify BeamNG vehicle mods, adjust suspension stance, scale camber/ride height, or update JBeam files.
+Beam Stance Tool is a beamng-suspension-modifier
+it Modifies, scale, and optimize vehicle suspension geometry, camber, toe, track width, and ride height in BeamNG.drive vehicle mods (.zip archives containing .jbeam files) using an interactive web application and JBeam parsing tools. Use when the user asks to modify BeamNG vehicle mods, adjust suspension stance, scale camber/ride height, or update JBeam files.
 
 Instructions
 BeamNG Suspension Modifier

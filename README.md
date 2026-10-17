@@ -1,3 +1,7 @@
+*****Instructions
+drag and drop vehicle zips that you want to slam/stance apply scaling and add the mod.
+now you dont have to mess with unpacking and messing with tricky .lua files
+
 Beam Stance Tool is a beamng-suspension-modifier
 it Modifies, scale, and optimize vehicle suspension geometry, camber, toe, track width, and ride height in BeamNG.drive vehicle mods (.zip archives containing .jbeam files) using an interactive web application and JBeam parsing tools. Use when the user asks to modify BeamNG vehicle mods, adjust suspension stance, scale camber/ride height, or update JBeam files.
 
@@ -7,9 +11,6 @@ this is the unedited max values <img width="715" height="450" alt="useme2" src="
    
 <img width="1257" height="863" alt="useme1" src="https://github.com/user-attachments/assets/7e13985f-7e86-4807-b39d-df6909eefb97" />
 
-*****Instructions
-drag and drop vehicle zips that you want to slam/stance apply scaling and add the mod.
-now you dont have to mess with unpacking and messing with tricky .lua files
 
 how it works
 Modifying BeamNG.drive vehicle mods (.zip files).

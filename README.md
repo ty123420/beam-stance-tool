@@ -5,10 +5,6 @@
 
 A browser-only tool that edits BeamNG.drive vehicle mod archives (.zip with .jbeam files) to scale suspension geometry (camber, ride height, track width, toe). This repository contains the transformation logic, tests, and docs.
 
-<img width="715" height="450" alt="useme2" src="https://github.com/user-attachments/assets/da995d85-4876-4504-877c-74173d4287f6" />
-
-<img width="1084" height="574" alt="useme3" src="https://github.com/user-attachments/assets/6974d29d-fb6d-4736-a972-5c0c65577083" />
-
 
 Important: always operate on copies of mods. This tool is community-made and not endorsed by BeamNG. Use at your own risk.
 

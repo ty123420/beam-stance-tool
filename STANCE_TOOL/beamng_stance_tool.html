@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeamNG Adaptive Suspension Modifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #181825; color: #CDD6F4; }
+        .drop-zone { border: 2px dashed #45475A; transition: all 0.2s ease; }
+        .drop-zone.active { border-color: #89B4FA; background-color: #1E1E2E; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #181825; }
+        ::-webkit-scrollbar-thumb { background: #45475A; border-radius: 3px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col p-4 gap-4 overflow-hidden">
+
+    <!-- Header Section -->
+    <header class="flex justify-between items-center bg-[#1E1E2E] p-4 rounded-xl border border-[#313244] shadow-md">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-600/30 p-2.5 rounded-lg border border-indigo-500/30">
+                <i class="fa-solid fa-sliders text-xl text-indigo-400"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-white tracking-wide">BeamStance</h1>
+                <p class="text-xs text-gray-400">Proportional scaling & real-time JBeam geometry modification tool</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Splitter -->
+    <main class="flex-1 grid grid-cols-12 gap-4 min-h-0">
+
+        <!-- Left Panel: Adaptive Controls -->
+        <div class="col-span-4 bg-[#1E1E2E] rounded-xl border border-[#313244] p-4 flex flex-col gap-4 overflow-y-auto">
+            <div class="border-b border-[#313244] pb-2">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-screwdriver-wrench text-indigo-400"></i> Scaling & Alignment Factors
+                </h2>
+                <p class="text-[11px] text-gray-400 mt-0.5">Scale slider bounds without shifting baseline vehicle spawn position.</p>
+            </div>
+
+            <!-- Camber & Height Multipliers -->
+            <div class="space-y-3">
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-medium text-gray-300">Negative Camber Scaling</span>
+                        <span id="val-camber" class="text-indigo-400 font-mono font-bold">3.0x</span>
+                    </div>
+                    <input type="range" id="input-camber" min="1.0" max="6.0" step="0.25" value="3.0" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-medium text-gray-300">Ride Height Lowering Range</span>
+                        <span id="val-height" class="text-indigo-400 font-mono font-bold">3.0x</span>
+                    </div>
+                    <input type="range" id="input-height" min="1.0" max="6.0" step="0.25" value="3.0" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-medium text-gray-300">Track Width Expansion</span>
+                        <span id="val-track" class="text-indigo-400 font-mono font-bold">2.5x</span>
+                    </div>
+                    <input type="range" id="input-track" min="1.0" max="5.0" step="0.25" value="2.5" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+            </div>
+
+            <!-- Toe Alignment Controls -->
+            <div class="border-t border-[#313244] pt-3 space-y-3">
+                <h3 class="text-xs font-bold text-gray-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-compass text-emerald-400"></i> Toe Alignment Calibration
+                </h3>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-medium text-gray-300">Front Toe Range Expansion</span>
+                        <span id="val-toe-front" class="text-emerald-400 font-mono font-bold">2.5x</span>
+                    </div>
+                    <input type="range" id="input-toe-front" min="1.0" max="5.0" step="0.25" value="2.5" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-medium text-gray-300">Front Toe Base Correction</span>
+                        <span id="val-toe-bias" class="text-emerald-400 font-mono font-bold">0.0000 (Neutral)</span>
+                    </div>
+                    <input type="range" id="input-toe-bias" min="-0.010" max="0.010" step="0.0005" value="0.0000" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-medium text-gray-300">Rear Toe Range Expansion</span>
+                        <span id="val-toe-rear" class="text-emerald-400 font-mono font-bold">2.5x</span>
+                    </div>
+                    <input type="range" id="input-toe-rear" min="1.0" max="5.0" step="0.25" value="2.5" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+            </div>
+
+            <!-- Live Wheel Geometry Canvas -->
+            <div class="bg-[#181825] p-3 rounded-lg border border-[#313244] flex flex-col items-center">
+                <div class="w-full flex justify-between items-center mb-1.5">
+                    <span class="text-[11px] font-bold text-gray-300">Live Geometry Simulation (Camber & Toe)</span>
+                    <div class="flex items-center gap-2">
+                        <span id="sim-camber-deg" class="text-[10px] text-emerald-400 font-mono">-8.4° Camber</span>
+                        <span id="sim-toe-deg" class="text-[10px] text-indigo-400 font-mono">0.0° Toe</span>
+                    </div>
+                </div>
+                <canvas id="wheel-canvas" width="280" height="130" class="w-full bg-[#11111b] rounded border border-[#313244]"></canvas>
+            </div>
+
+            <!-- Primary Action Apply Button -->
+            <button id="btn-process" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/25 transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                <i class="fa-solid fa-bolt"></i> Apply Smart Suspension Scaling
+            </button>
+        </div>
+
+        <!-- Right Panel: Drop Card, File Table, Preview & JBeam Inspector -->
+        <div class="col-span-8 flex flex-col gap-4 min-h-0">
+            
+            <!-- Top Right Grid: Drop Card + Vehicle Image Preview -->
+            <div class="grid grid-cols-12 gap-4">
+                <!-- File Drop Zone -->
+                <div id="drop-card" class="col-span-7 drop-zone bg-[#1E1E2E] rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer text-center relative overflow-hidden group border border-[#313244]">
+                    <div class="flex items-center gap-3 relative z-10 pointer-events-none">
+                        <i class="fa-solid fa-file-zipper text-2xl text-indigo-400 group-hover:scale-110 transition"></i>
+                        <div class="text-left pointer-events-none">
+                            <p class="font-semibold text-xs text-white">Drag & Drop Vehicle .ZIP Mods</p>
+                            <p class="text-[10px] text-gray-400">or click to browse archives</p>
+                        </div>
+                    </div>
+                    <input type="file" id="file-input" multiple accept=".zip,application/zip,application/x-zip-compressed" class="hidden">
+                </div>
+
+                <!-- Vehicle Thumbnail Preview Box -->
+                <div id="vehicle-preview-card" class="col-span-5 bg-[#1E1E2E] rounded-xl border border-[#313244] p-3 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div class="w-full flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                            <i class="fa-solid fa-image text-indigo-400"></i> Vehicle Preview
+                        </span>
+                        <span id="preview-filename" class="text-[9px] text-gray-400 font-mono truncate max-w-[100px]">No file</span>
+                    </div>
+                    <div id="preview-img-container" class="w-full h-20 bg-[#11111b] rounded border border-[#313244] flex items-center justify-center overflow-hidden relative group">
+                        <i id="preview-placeholder-icon" class="fa-solid fa-car text-2xl text-gray-600"></i>
+                        <img id="vehicle-thumb" alt="Vehicle Thumbnail" class="max-h-full max-w-full object-contain hidden">
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Processing Queue Table -->
+            <div class="bg-[#1E1E2E] rounded-xl border border-[#313244] flex-1 flex flex-col overflow-hidden">
+                <div class="p-3 border-b border-[#313244] flex justify-between items-center bg-[#181825]/50">
+                    <span class="text-xs font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-indigo-400"></i> Archive Queue
+                    </span>
+                    <div class="flex gap-2">
+                        <button id="btn-clear-queue" class="text-[11px] text-gray-400 hover:text-red-400 transition flex items-center gap-1">
+                            <i class="fa-solid fa-trash"></i> Clear Queue
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-[#181825] text-gray-400 sticky top-0 border-b border-[#313244]">
+                            <tr>
+                                <th class="p-2.5 font-semibold">File Name</th>
+                                <th class="p-2.5 font-semibold">Size</th>
+                                <th class="p-2.5 font-semibold">Status</th>
+                                <th class="p-2.5 font-semibold text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-list" class="divide-y divide-[#313244]">
+                            <tr id="empty-state">
+                                <td colspan="4" class="p-8 text-center text-gray-500">
+                                    No ZIP files added yet. Drop files above to begin.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Live JBeam Inspector -->
+            <div class="h-36 bg-[#1E1E2E] rounded-xl border border-[#313244] flex flex-col overflow-hidden">
+                <div class="p-2.5 border-b border-[#313244] flex justify-between items-center bg-[#181825]">
+                    <span id="inspect-tag" class="text-xs font-bold text-indigo-300 font-mono flex items-center gap-1.5">
+                        <i class="fa-solid fa-code"></i> Live JBeam Diff Inspector
+                    </span>
+                </div>
+                <div id="preview-container" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed text-gray-300 bg-[#11111b]">
+                    <pre id="jbeam-diff-code" class="whitespace-pre-wrap text-gray-400">// Select a processed file from the queue above to inspect modified JBeam variables...</pre>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Bar -->
+    <footer class="bg-[#1E1E2E] px-4 py-2 rounded-xl border border-[#313244] flex justify-between items-center text-xs text-gray-400">
+        <span id="status-text">Ready for next vehicle! Drag and drop or browse another vehicle ZIP archive.</span>
+        <span class="text-[10px] text-gray-500 font-mono">BeamStance v3.0</span>
+    </footer>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // State variables
+        const fileQueue = [];
+        let selectedIndex = -1;
+
+        // DOM Element Selectors
+        const dropCard = document.getElementById('drop-card');
+        const fileInput = document.getElementById('file-input');
+        const queueList = document.getElementById('queue-list');
+        const statusText = document.getElementById('status-text');
+        const jbeamDiffCode = document.getElementById('jbeam-diff-code');
+        const inspectTag = document.getElementById('inspect-tag');
+        const vehicleThumb = document.getElementById('vehicle-thumb');
+        const previewPlaceholderIcon = document.getElementById('preview-placeholder-icon');
+        const previewFilename = document.getElementById('preview-filename');
+
+        // Input Controls
+        const inputCamber = document.getElementById('input-camber');
+        const inputHeight = document.getElementById('input-height');
+        const inputTrack = document.getElementById('input-track');
+        const inputToeFront = document.getElementById('input-toe-front');
+        const inputToeBias = document.getElementById('input-toe-bias');
+        const inputToeRear = document.getElementById('input-toe-rear');
+
+        // Canvas for simulation preview
+        const wheelCanvas = document.getElementById('wheel-canvas');
+        const ctx = wheelCanvas ? wheelCanvas.getContext('2d') : null;
+
+        // --- BULLETPROOF DRAG & DROP EVENT HANDLERS ---
+        dropCard.addEventListener('click', () => {
+            fileInput.value = '';
+            fileInput.click();
+        });
+
+        // Prevent browser from opening dropped files globally
+        window.addEventListener('dragover', (e) => e.preventDefault(), false);
+        window.addEventListener('drop', (e) => e.preventDefault(), false);
+
+        dropCard.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dropCard.classList.add('active');
+        });
+
+        dropCard.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Required to allow drops
+            dropCard.classList.add('active');
+        });
+
+        dropCard.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropCard.classList.remove('active');
+        });
+
+        dropCard.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropCard.classList.remove('active');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFiles(e.target.files);
+            }
+        });
+
+        function handleFiles(files) {
+            let addedCount = 0;
+            for (let file of files) {
+                if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
+                    fileQueue.push({ file: file, status: 'Pending', modifiedBlob: null, log: '', previewUrl: null });
+                    addedCount++;
+                }
+            }
+            if (addedCount > 0) {
+                renderQueue();
+                selectItem(fileQueue.length - 1);
+                statusText.innerText = `Added ${addedCount} archive(s). Click Apply to process.`;
+            } else {
+                statusText.innerText = 'Please select valid .ZIP archive files.';
+            }
+        }
+
+        // Input Slider Listeners
+        [inputCamber, inputHeight, inputTrack, inputToeFront, inputToeBias, inputToeRear].forEach(el => {
+            el.addEventListener('input', () => {
+                document.getElementById('val-camber').innerText = inputCamber.value + 'x';
+                document.getElementById('val-height').innerText = inputHeight.value + 'x';
+                document.getElementById('val-track').innerText = inputTrack.value + 'x';
+                document.getElementById('val-toe-front').innerText = inputToeFront.value + 'x';
+                
+                const biasVal = parseFloat(inputToeBias.value);
+                const biasText = biasVal > 0 ? `+${biasVal.toFixed(4)} (Toe-In)` : (biasVal < 0 ? `${biasVal.toFixed(4)} (Toe-Out)` : '0.0000 (Neutral)');
+                document.getElementById('val-toe-bias').innerText = biasText;
+                
+                document.getElementById('val-toe-rear').innerText = inputToeRear.value + 'x';
+                drawWheelSimulation();
+            });
+        });
+
+        // Render geometry visualizer on canvas with Front Elevation (Camber) and Top-Down Plan View (Toe)
+        function drawWheelSimulation() {
+            if (!ctx) return;
+            const w = wheelCanvas.width;
+            const h = wheelCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const camberFactor = parseFloat(inputCamber.value);
+            const trackFactor = parseFloat(inputTrack.value);
+            const heightFactor = parseFloat(inputHeight.value);
+            const toeBias = parseFloat(inputToeBias.value);
+            const toeFrontFactor = parseFloat(inputToeFront.value);
+
+            // ==========================================
+            // LEFT HALF: Front View (Camber & Ride Height)
+            // ==========================================
+            const leftCenterX = 70;
+            const groundY = 110;
+
+            // Ground line
+            ctx.strokeStyle = '#313244';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(10, groundY);
+            ctx.lineTo(130, groundY);
+            ctx.stroke();
+
+            // Label
+            ctx.fillStyle = '#6C7086';
+            ctx.font = '9px monospace';
+            ctx.fillText('CAMBER / HEIGHT', 15, 18);
+
+            const camberAngle = (camberFactor * 2.8) * (Math.PI / 180);
+            const trackOffset = (trackFactor - 1.0) * 8;
+            const heightOffset = (heightFactor - 1.0) * 2.5;
+
+            // Draw Front Left Wheel
+            drawWheelFront(ctx, leftCenterX - 35 - trackOffset, groundY - 20 + heightOffset, -camberAngle);
+            // Draw Front Right Wheel
+            drawWheelFront(ctx, leftCenterX + 35 + trackOffset, groundY - 20 + heightOffset, camberAngle);
+
+            // ==========================================
+            // RIGHT HALF: Top-Down View (Toe Angle)
+            // ==========================================
+            const rightCenterX = 210;
+            const topY = 65;
+
+            // Chassis Center Line
+            ctx.strokeStyle = '#313244';
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(rightCenterX, 20);
+            ctx.lineTo(rightCenterX, 115);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Label
+            ctx.fillStyle = '#6C7086';
+            ctx.font = '9px monospace';
+            ctx.fillText('TOE (TOP-DOWN)', 160, 18);
+
+            // Calculate Toe Angle in Radians (Bias + Expansion)
+            const calculatedToeAngle = (toeBias * 1200 + (toeFrontFactor - 1.0) * 1.5) * (Math.PI / 180);
+
+            // Left Wheel Top View
+            drawWheelTop(ctx, rightCenterX - 35 - trackOffset, topY, calculatedToeAngle);
+            // Right Wheel Top View
+            drawWheelTop(ctx, rightCenterX + 35 + trackOffset, topY, -calculatedToeAngle);
+
+            // Update Header Values
+            const degText = (camberFactor * -2.8).toFixed(1) + '° Camber';
+            const toeDegVal = (calculatedToeAngle * (180 / Math.PI)).toFixed(1);
+            const toeText = (toeDegVal > 0 ? '+' : '') + toeDegVal + '° Toe ' + (toeDegVal > 0 ? '(In)' : (toeDegVal < 0 ? '(Out)' : '(Neutral)'));
+
+            document.getElementById('sim-camber-deg').innerText = degText;
+            document.getElementById('sim-toe-deg').innerText = toeText;
+        }
+
+        function drawWheelFront(c, x, y, angle) {
+            c.save();
+            c.translate(x, y);
+            c.rotate(angle);
+            c.fillStyle = '#89B4FA';
+            c.strokeStyle = '#CDD6F4';
+            c.lineWidth = 1.5;
+            c.beginPath();
+            c.roundRect(-6, -16, 12, 32, 2);
+            c.fill();
+            c.stroke();
+            c.restore();
+        }
+
+        function drawWheelTop(c, x, y, angle) {
+            c.save();
+            c.translate(x, y);
+            c.rotate(angle);
+            c.fillStyle = '#A6E3A1';
+            c.strokeStyle = '#CDD6F4';
+            c.lineWidth = 1.5;
+            c.beginPath();
+            c.roundRect(-5, -14, 10, 28, 2);
+            c.fill();
+            c.stroke();
+
+            // Tread Direction Line
+            c.strokeStyle = '#11111b';
+            c.beginPath();
+            c.moveTo(0, -10);
+            c.lineTo(0, 10);
+            c.stroke();
+
+            c.restore();
+        }
+
+        function renderQueue() {
+            if (fileQueue.length === 0) {
+                queueList.innerHTML = `
+                    <tr id="empty-state">
+                        <td colspan="4" class="p-8 text-center text-gray-500">
+                            No ZIP files added yet. Drop files above to begin.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            queueList.innerHTML = '';
+            fileQueue.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = `border-b border-[#313244] cursor-pointer transition hover:bg-[#313244]/40 ${selectedIndex === idx ? 'bg-[#313244]/70 font-semibold' : ''}`;
+                tr.onclick = () => selectItem(idx);
+
+                const sizeMb = (item.file.size / (1024 * 1024)).toFixed(2);
+                const statusBadge = item.status === 'Smart Scaled ✅' 
+                    ? `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">Scaled ✅</span>`
+                    : `<span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">${item.status}</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-2.5 text-white flex items-center gap-2">
+                        <i class="fa-solid fa-file-archive text-indigo-400"></i> ${item.file.name}
+                    </td>
+                    <td class="p-2.5 text-gray-400 font-mono">${sizeMb} MB</td>
+                    <td class="p-2.5">${statusBadge}</td>
+                    <td class="p-2.5 text-right">
+                        ${item.modifiedBlob ? `<a href="${URL.createObjectURL(item.modifiedBlob)}" download="scaled_${item.file.name}" class="text-indigo-400 hover:underline text-[11px]">Download</a>` : ''}
+                    </td>
+                `;
+                queueList.appendChild(tr);
+            });
+        }
+
+        async function selectItem(idx) {
+            selectedIndex = idx;
+            renderQueue();
+            const item = fileQueue[idx];
+            if (!item) return;
+
+            previewFilename.innerText = item.file.name;
+
+            // Load vehicle preview image from ZIP if available
+            try {
+                const zip = await JSZip.loadAsync(item.file);
+                let foundImg = null;
+
+                for (let filename of Object.keys(zip.files)) {
+                    const fnLower = filename.toLowerCase();
+                    if (fnLower.endsWith('.png') || fnLower.endsWith('.jpg') || fnLower.endsWith('.jpeg')) {
+                        if (fnLower.includes('preview') || fnLower.includes('default') || fnLower.includes('icon') || fnLower.includes('thumbnail')) {
+                            foundImg = zip.files[filename];
+                            break;
+                        } else if (!foundImg) {
+                            foundImg = zip.files[filename];
+                        }
+                    }
+                }
+
+                if (foundImg) {
+                    const blob = await foundImg.async('blob');
+                    vehicleThumb.src = URL.createObjectURL(blob);
+                    vehicleThumb.classList.remove('hidden');
+                    previewPlaceholderIcon.classList.add('hidden');
+                } else {
+                    vehicleThumb.classList.add('hidden');
+                    previewPlaceholderIcon.classList.remove('hidden');
+                }
+            } catch (err) {
+                vehicleThumb.classList.add('hidden');
+                previewPlaceholderIcon.classList.remove('hidden');
+            }
+
+            if (item.log) {
+                jbeamDiffCode.innerText = item.log;
+                inspectTag.innerText = `Inspected: ${item.file.name}`;
+            } else {
+                jbeamDiffCode.innerText = `// Mod file selected: ${item.file.name}\n// Click "Apply Smart Suspension Scaling" to process and view modified JBeam variables.`;
+            }
+        }
+
+        document.getElementById('btn-clear-queue').addEventListener('click', () => {
+            fileQueue.length = 0;
+            selectedIndex = -1;
+            renderQueue();
+            jbeamDiffCode.innerText = '// Queue cleared.';
+            previewFilename.innerText = 'No file';
+            vehicleThumb.classList.add('hidden');
+            previewPlaceholderIcon.classList.remove('hidden');
+            statusText.innerText = 'Queue cleared.';
+        });
+
+        // Process button algorithm handler
+        document.getElementById('btn-process').addEventListener('click', async () => {
+            if (fileQueue.length === 0) {
+                statusText.innerText = 'Please add a ZIP file to process.';
+                return;
+            }
+
+            statusText.innerText = 'Processing JBeam suspension variables...';
+
+            const camberMult = parseFloat(inputCamber.value);
+            const heightMult = parseFloat(inputHeight.value);
+            const trackMult = parseFloat(inputTrack.value);
+            const toeFrontMult = parseFloat(inputToeFront.value);
+            const toeBias = parseFloat(inputToeBias.value);
+            const toeRearMult = parseFloat(inputToeRear.value);
+
+            for (let item of fileQueue) {
+                try {
+                    const zip = await JSZip.loadAsync(item.file);
+                    const newZip = new JSZip();
+                    let logText = `// Baseline vs Scaled Suspension Variables for ${item.file.name}\n\n`;
+                    let varsModified = 0;
+
+                    const fileKeys = Object.keys(zip.files);
+                    for (let relativePath of fileKeys) {
+                        const zipObj = zip.files[relativePath];
+                        if (zipObj.dir) continue;
+
+                        const pathLower = relativePath.toLowerCase();
+
+                        // Target suspension, steering, or alignment JBeam files
+                        const isSuspensionFile = pathLower.endsWith('.jbeam') && (
+                            pathLower.includes('suspension') || 
+                            pathLower.includes('steering') || 
+                            pathLower.includes('alignment') ||
+                            pathLower.includes('coilovers') ||
+                            pathLower.includes('struts')
+                        );
+
+                        if (isSuspensionFile) {
+                            const content = await zipObj.async('text');
+                            
+                            // JBeam array regex pattern matching
+                            const pattern = /(\[\s*"(\$[^"]+)"\s*,\s*"range"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*)([-+]?\d*\.?\d+)(\s*,\s*)([-+]?\d*\.?\d+)(\s*,\s*)([-+]?\d*\.?\d+)/g;
+                            
+                            const newContent = content.replace(pattern, (match, prefix, varName, defaultStr, sep1, minStr, sep2, maxStr) => {
+                                let origDefault = defaultStr;
+                                let origMin = minStr;
+                                let origMax = maxStr;
+
+                                let defaultVal = parseFloat(defaultStr);
+                                let minVal = parseFloat(minStr);
+                                let maxVal = parseFloat(maxStr);
+                                const varLower = varName.toLowerCase();
+
+                                // STRICT VARIABLE FILTER: Must be a stance variable AND explicitly exclude rally, offroad, or drifter variables
+                                const isStanceVar = (varLower.includes('camber') || 
+                                                    varLower.includes('rideheight') || 
+                                                    varLower.includes('height') || 
+                                                    varLower.includes('track') || 
+                                                    varLower.includes('toe')) &&
+                                                    !varLower.includes('rally') &&
+                                                    !varLower.includes('offroad') &&
+                                                    !varLower.includes('drifter');
+
+                                if (!isStanceVar) {
+                                    return match; // Leave rally/non-stance variables completely untouched
+                                }
+
+                                let newMin = minVal;
+                                let newMax = maxVal;
+
+                                // 1. Negative Camber
+                                if (varLower.includes('camber')) {
+                                    const negRange = defaultVal - minVal;
+                                    newMin = defaultVal - (Math.max(negRange, 0.01) * camberMult);
+                                    newMin = Math.max(newMin, -0.22);
+                                } 
+                                // 2. Ride Height Drop
+                                else if (varLower.includes('rideheight') || varLower.includes('height')) {
+                                    const dropRange = defaultVal - minVal;
+                                    newMin = defaultVal - (Math.max(dropRange, 0.01) * heightMult);
+                                    newMin = Math.max(newMin, -0.25);
+                                } 
+                                // 3. Track Width Expansion
+                                else if (varLower.includes('track')) {
+                                    const outwardRange = maxVal - defaultVal;
+                                    const inwardRange = defaultVal - minVal;
+                                    newMax = defaultVal + (Math.max(outwardRange, 0.01) * trackMult);
+                                    newMin = defaultVal - (Math.max(inwardRange, 0.01) * trackMult);
+                                } 
+                                // 4. Toe Alignment Optimization
+                                else if (varLower.includes('toe')) {
+                                    const isFront = varLower.includes('f');
+                                    const mult = isFront ? toeFrontMult : toeRearMult;
+                                    
+                                    if (isFront) {
+                                        defaultVal = defaultVal + toeBias;
+                                    }
+
+                                    const toeRange = Math.max(Math.abs(defaultVal - minVal), Math.abs(maxVal - defaultVal), 0.005);
+                                    newMin = defaultVal - (toeRange * mult);
+                                    newMax = defaultVal + (toeRange * mult);
+                                }
+
+                                varsModified++;
+                                logText += `${varName}:\n` +
+                                           `  Baseline -> default: ${origDefault}, min: ${origMin}, max: ${origMax}\n` +
+                                           `  Scaled   -> default: ${defaultVal.toFixed(4)}, min: ${newMin.toFixed(4)}, max: ${newMax.toFixed(4)}\n\n`;
+
+                                return `${prefix}${defaultVal.toFixed(4)}${sep1}${newMin.toFixed(4)}${sep2}${newMax.toFixed(4)}`;
+                            });
+
+                            newZip.file(relativePath, newContent);
+                        } else {
+                            // Keep all other files entirely untouched
+                            const blob = await zipObj.async('blob');
+                            newZip.file(relativePath, blob);
+                        }
+                    }
+
+                    const modifiedBlob = await newZip.generateAsync({ type: 'blob' });
+                    item.modifiedBlob = modifiedBlob;
+                    item.status = 'Smart Scaled ✅';
+                    item.log = logText + `// Total variables updated: ${varsModified}`;
+
+                } catch (err) {
+                    item.status = 'Error';
+                    item.log = `// Error parsing archive: ${err.message}`;
+                }
+            }
+
+            renderQueue();
+            selectItem(selectedIndex >= 0 ? selectedIndex : 0);
+            statusText.innerText = 'BeamStance race suspension scaling applied successfully!';
+        });
+
+        // Initialize canvas drawing on load
+        window.onload = () => {
+            drawWheelSimulation();
+        };
+    </script>
+</body>
+</html>

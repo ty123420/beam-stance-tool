@@ -9,7 +9,4 @@ Quick start (local):
    python -m http.server 8000
 2. Open the HTML page in a browser:
    beamng_stance_tool.html
-Run tests:
-- Node.js v16+ required
-- npm install
-- npm test
+

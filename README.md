@@ -9,8 +9,6 @@
 
 A small, client-side web tool for quickly "slamming" and adjusting suspension geometry in BeamNG.drive vehicle mods (.zip archives with .jbeam files). Drag & drop a vehicle archive, tweak sliders (camber, ride height, track width, toe) and download a repacked mod — no manual unpacking or editing of JBeam/Lua required.
 
-<img width="1084" height="574" alt="useme3" src="https://github.com/user-attachments/assets/92d895c9-8b0d-4874-bfcb-4ba8746eb998" />
-<img width="715" height="450" alt="useme2" src="https://github.com/user-attachments/assets/9cf7974a-fee7-4288-be7d-3e9270af4cf9" />
 
 
 Status: Beta — works in modern desktop browsers. See SECURITY and LIMITATIONS below before using on important mods.
@@ -18,6 +16,10 @@ Status: Beta — works in modern desktop browsers. See SECURITY and LIMITATIONS 
 ---
 
 ## Quick features
+
+<img width="1084" height="574" alt="useme3" src="https://github.com/user-attachments/assets/92d895c9-8b0d-4874-bfcb-4ba8746eb998" />
+<img width="715" height="450" alt="useme2" src="https://github.com/user-attachments/assets/9cf7974a-fee7-4288-be7d-3e9270af4cf9" />
+
 - Browser-only: all processing happens client-side (no file uploads).
 - Interactive sliders for:
   - Negative camber scaling

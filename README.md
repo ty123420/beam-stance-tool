@@ -8,9 +8,4 @@ A browser-only tool that edits BeamNG.drive vehicle mod archives (.zip with .jbe
 
 Important: always operate on copies of mods. This tool is community-made and not endorsed by BeamNG. Use at your own risk.
 
-Quick start (local):
-1. Serve the project folder over HTTP (recommended):
-   python -m http.server 8000
-2. Open the HTML page in a browser:
-   beamng_stance_tool.html
 

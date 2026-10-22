@@ -5,7 +5,7 @@
 - Add GitHub Actions test workflow
 - Add basic security and contribution docs
 - Add qol
-- add verhicle cache
+- add vehicle cache
 
 ## 0.1.0
 - Initial public release v0.1

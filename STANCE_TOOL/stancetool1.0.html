@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeamStance - Fast Adaptive Suspension Modifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #11111b; color: #cdd6f4; }
+        .drop-zone { border: 2px dashed #45475a; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .drop-zone.active { border-color: #89b4fa; background-color: #1e1e2e; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #181825; }
+        ::-webkit-scrollbar-thumb { background: #45475a; border-radius: 4px; }
+        .diff-add { color: #a6e3a1; font-weight: 600; }
+        .diff-sub { color: #f38ba8; text-decoration: line-through; opacity: 0.7; }
+    </style>
+</head>
+<body class="h-screen flex flex-col p-3 gap-3 overflow-hidden select-none">
+
+    <!-- Header Section -->
+    <header class="flex justify-between items-center bg-[#181825] px-4 py-2.5 rounded-xl border border-[#313244] shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-600/20 p-2 rounded-lg border border-indigo-500/30 text-indigo-400">
+                <i class="fa-solid fa-bolt text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                    BeamStance <span class="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">Turbo In-Place v4.6</span>
+                </h1>
+                <p class="text-[11px] text-gray-400">Fast JBeam Variable Geometry Scaler & Batch Packager</p>
+            </div>
+        </div>
+        <div id="batch-actions" class="flex items-center gap-2 hidden">
+            <button id="btn-download-all" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow transition">
+                <i class="fa-solid fa-cloud-arrow-down"></i> Download All Modified
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 grid grid-cols-12 gap-3 min-h-0">
+
+        <!-- Left Column: Geometry Controls -->
+        <div class="col-span-4 bg-[#181825] rounded-xl border border-[#313244] p-3.5 flex flex-col gap-3.5 overflow-y-auto">
+            <div class="border-b border-[#313244] pb-2">
+                <h2 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-gear text-indigo-400"></i> Alignment Bounds Multipliers
+                </h2>
+                <p class="text-[11px] text-gray-400 mt-0.5">Scales min/max tuning boundaries without changing base spawn geometry.</p>
+            </div>
+
+            <!-- Camber, Height & Track Controls -->
+            <div class="space-y-2.5">
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-300 font-medium">Negative Camber Multiplier</span>
+                        <span id="val-camber" class="text-indigo-400 font-mono font-bold">1.0x</span>
+                    </div>
+                    <input type="range" id="input-camber" min="1.0" max="8.0" step="0.25" value="1.0" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-300 font-medium">Drop/Lowering Multiplier</span>
+                        <span id="val-height" class="text-indigo-400 font-mono font-bold">1.0x</span>
+                    </div>
+                    <input type="range" id="input-height" min="1.0" max="15.0" step="0.5" value="1.0" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-300 font-medium">Track Width Range</span>
+                        <span id="val-track" class="text-indigo-400 font-mono font-bold">1.0x</span>
+                    </div>
+                    <input type="range" id="input-track" min="1.0" max="6.0" step="0.25" value="1.0" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+            </div>
+
+            <!-- Toe Alignment Settings -->
+            <div class="border-t border-[#313244] pt-2.5 space-y-2.5">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrows-left-right text-emerald-400"></i> Toe Calibration
+                </h3>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-300 font-medium">Front Toe Angle Expansion</span>
+                        <span id="val-toe-front" class="text-emerald-400 font-mono font-bold">1.0x</span>
+                    </div>
+                    <input type="range" id="input-toe-front" min="1.0" max="6.0" step="0.25" value="1.0" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-300 font-medium">Front Toe Zero-Offset Bias</span>
+                        <span id="val-toe-bias" class="text-emerald-400 font-mono font-bold">0.0000 (Neutral)</span>
+                    </div>
+                    <input type="range" id="input-toe-bias" min="-0.015" max="0.015" step="0.0005" value="0.0000" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-300 font-medium">Rear Toe Angle Expansion</span>
+                        <span id="val-toe-rear" class="text-emerald-400 font-mono font-bold">1.0x</span>
+                    </div>
+                    <input type="range" id="input-toe-rear" min="1.0" max="6.0" step="0.25" value="1.0" class="w-full h-1.5 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+            </div>
+
+            <!-- Live Canvas Simulation -->
+            <div class="bg-[#11111b] p-2.5 rounded-lg border border-[#313244]">
+                <div class="w-full flex justify-between items-center mb-1 text-[10px]">
+                    <span class="font-bold text-gray-400">GEOMETRY SIMULATOR</span>
+                    <span id="sim-readout" class="text-indigo-400 font-mono font-semibold">-2.8° Camber | 0.0px Drop</span>
+                </div>
+                <canvas id="wheel-canvas" width="300" height="120" class="w-full rounded bg-[#0c0c14] border border-[#232433]"></canvas>
+            </div>
+
+            <!-- Fast Action Button -->
+            <button id="btn-process" class="w-full mt-auto bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-bold py-2.5 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                <i class="fa-solid fa-bolt"></i> Fast Patch JBeam Suspension
+            </button>
+        </div>
+
+        <!-- Right Column: Pipeline Queue, Mod Preview & Inspector -->
+        <div class="col-span-8 flex flex-col gap-3 min-h-0">
+            
+            <!-- Drop Card & Mod Preview -->
+            <div class="grid grid-cols-12 gap-3 h-28">
+                <div id="drop-card" class="col-span-8 drop-zone bg-[#181825] rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer text-center group">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-file-zipper text-2xl text-indigo-400 group-hover:scale-110 transition"></i>
+                        <div class="text-left">
+                            <p class="font-bold text-xs text-white">Drag & Drop Vehicle Mod ZIP(s)</p>
+                            <p class="text-[10px] text-gray-400">or click to browse local files</p>
+                        </div>
+                    </div>
+                    <input type="file" id="file-input" multiple accept=".zip" class="hidden">
+                </div>
+
+                <div class="col-span-4 bg-[#181825] rounded-xl border border-[#313244] p-2 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div class="w-full flex justify-between items-center mb-1 text-[9px] text-gray-400 font-mono">
+                        <span>PREVIEW</span>
+                        <span id="preview-filename" class="truncate max-w-[90px]">None</span>
+                    </div>
+                    <div class="w-full flex-1 bg-[#11111b] rounded border border-[#313244] flex items-center justify-center overflow-hidden">
+                        <i id="preview-placeholder" class="fa-solid fa-car text-xl text-gray-700"></i>
+                        <img id="vehicle-thumb" alt="Thumbnail" class="max-h-full max-w-full object-contain hidden">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue Table -->
+            <div class="bg-[#181825] rounded-xl border border-[#313244] flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div class="px-3 py-2 border-b border-[#313244] flex justify-between items-center bg-[#11111b]/40">
+                    <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-check text-indigo-400"></i> Archive Pipeline
+                    </span>
+                    <button id="btn-clear-queue" class="text-[10px] text-gray-400 hover:text-red-400 transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i> Clear
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-[#11111b] text-gray-400 sticky top-0 border-b border-[#313244] text-[10px] uppercase">
+                            <tr>
+                                <th class="p-2">File</th>
+                                <th class="p-2 w-20">Size</th>
+                                <th class="p-2 w-28">Status</th>
+                                <th class="p-2 w-24 text-right">Download</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-list" class="divide-y divide-[#262738]">
+                            <tr id="empty-state">
+                                <td colspan="4" class="p-6 text-center text-gray-500 text-xs">
+                                    Queue is empty. Drop BeamNG vehicle ZIP archives above.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Live Diff Inspector -->
+            <div class="h-44 bg-[#181825] rounded-xl border border-[#313244] flex flex-col overflow-hidden">
+                <div class="px-3 py-1.5 border-b border-[#313244] flex justify-between items-center bg-[#11111b]">
+                    <span id="inspect-tag" class="text-[11px] font-bold text-indigo-300 font-mono flex items-center gap-1.5">
+                        <i class="fa-solid fa-code-compare"></i> Real-Time JBeam Diff
+                    </span>
+                </div>
+                <div id="preview-container" class="flex-1 p-2.5 overflow-y-auto font-mono text-[10.5px] leading-relaxed bg-[#0c0c14] select-text">
+                    <pre id="jbeam-diff-code" class="text-gray-400">// Select a processed vehicle to inspect JBeam variable modifications...</pre>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Status -->
+    <footer class="bg-[#181825] px-3 py-1.5 rounded-lg border border-[#313244] flex justify-between items-center text-[11px] text-gray-400">
+        <span id="status-text">Ready. Drag & drop BeamNG vehicle mods to begin.</span>
+        <span class="text-gray-500 font-mono">BeamStance Core v4.6</span>
+    </footer>
+
+    <script>
+        // State Store
+        const fileQueue = [];
+        let selectedIndex = -1;
+
+        // Elements
+        const dropCard = document.getElementById('drop-card');
+        const fileInput = document.getElementById('file-input');
+        const queueList = document.getElementById('queue-list');
+        const statusText = document.getElementById('status-text');
+        const jbeamDiffCode = document.getElementById('jbeam-diff-code');
+        const inspectTag = document.getElementById('inspect-tag');
+        const vehicleThumb = document.getElementById('vehicle-thumb');
+        const previewPlaceholder = document.getElementById('preview-placeholder');
+        const previewFilename = document.getElementById('preview-filename');
+        const batchActions = document.getElementById('batch-actions');
+        const btnDownloadAll = document.getElementById('btn-download-all');
+
+        // Inputs
+        const inputCamber = document.getElementById('input-camber');
+        const inputHeight = document.getElementById('input-height');
+        const inputTrack = document.getElementById('input-track');
+        const inputToeFront = document.getElementById('input-toe-front');
+        const inputToeBias = document.getElementById('input-toe-bias');
+        const inputToeRear = document.getElementById('input-toe-rear');
+
+        const wheelCanvas = document.getElementById('wheel-canvas');
+        const ctx = wheelCanvas.getContext('2d');
+
+        // Drag & Drop
+        dropCard.onclick = () => { fileInput.value = ''; fileInput.click(); };
+        window.ondragover = e => e.preventDefault();
+        window.ondrop = e => e.preventDefault();
+
+        ['dragenter', 'dragover'].forEach(evt => dropCard.addEventListener(evt, () => dropCard.classList.add('active')));
+        ['dragleave', 'drop'].forEach(evt => dropCard.addEventListener(evt, () => dropCard.classList.remove('active')));
+
+        dropCard.addEventListener('drop', e => {
+            if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', e => {
+            if (e.target.files?.length) handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            let count = 0;
+            for (let file of files) {
+                if (file.name.toLowerCase().endsWith('.zip')) {
+                    fileQueue.push({ file, status: 'Pending', modifiedBlob: null, log: '', thumbUrl: null });
+                    count++;
+                }
+            }
+            if (count > 0) {
+                renderQueue();
+                selectItem(fileQueue.length - count);
+                statusText.innerText = `Added ${count} archive(s). Click 'Fast Patch JBeam Suspension' to process.`;
+            }
+        }
+
+        // Sliders & Simulation
+        function updateLabels() {
+            document.getElementById('val-camber').innerText = inputCamber.value + 'x';
+            document.getElementById('val-height').innerText = inputHeight.value + 'x';
+            document.getElementById('val-track').innerText = inputTrack.value + 'x';
+            document.getElementById('val-toe-front').innerText = inputToeFront.value + 'x';
+            
+            const b = parseFloat(inputToeBias.value);
+            document.getElementById('val-toe-bias').innerText = b > 0 ? `+${b.toFixed(4)} (In)` : (b < 0 ? `${b.toFixed(4)} (Out)` : '0.0000 (Neutral)');
+            document.getElementById('val-toe-rear').innerText = inputToeRear.value + 'x';
+            
+            drawWheelSimulation();
+        }
+
+        [inputCamber, inputHeight, inputTrack, inputToeFront, inputToeBias, inputToeRear].forEach(el => el.addEventListener('input', updateLabels));
+
+        function drawWheelSimulation() {
+            const w = wheelCanvas.width, h = wheelCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const camberMult = parseFloat(inputCamber.value);
+            const heightMult = parseFloat(inputHeight.value);
+            const trackMult = parseFloat(inputTrack.value);
+            const toeBias = parseFloat(inputToeBias.value);
+
+            const camberAngle = (camberMult * 2.8) * (Math.PI / 180);
+            const trackOffset = (trackMult - 1.0) * 10;
+            const dropPx = (heightMult - 1.0) * 2.2;
+
+            document.getElementById('sim-readout').innerText = `-${(camberMult * 2.8).toFixed(1)}° Camber | ${dropPx.toFixed(1)}px Drop`;
+
+            // Front Axle View (Left)
+            const flX = 75, flY = 105;
+            ctx.strokeStyle = '#313244';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(15, flY); ctx.lineTo(135, flY); ctx.stroke();
+
+            drawRectRotated(flX - 35 - trackOffset, flY - 22 + dropPx, 12, 36, -camberAngle, '#89b4fa');
+            drawRectRotated(flX + 35 + trackOffset, flY - 22 + dropPx, 12, 36, camberAngle, '#89b4fa');
+
+            // Top-Down Toe View (Right)
+            const trX = 225, trY = 60;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath(); ctx.moveTo(trX, 15); ctx.lineTo(trX, 105); ctx.stroke();
+            ctx.setLineDash([]);
+
+            const toeAngle = (toeBias * 1500) * (Math.PI / 180);
+            drawRectRotated(trX - 35 - trackOffset, trY, 12, 32, toeAngle, '#a6e3a1');
+            drawRectRotated(trX + 35 + trackOffset, trY, 12, 32, -toeAngle, '#a6e3a1');
+        }
+
+        function drawRectRotated(x, y, w, h, angle, color) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.fillStyle = color;
+            ctx.strokeStyle = '#cdd6f4';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(-w/2, -h/2, w, h, 2);
+            ctx.fill(); ctx.stroke();
+            ctx.restore();
+        }
+
+        // Render Queue
+        function renderQueue() {
+            if (fileQueue.length === 0) {
+                queueList.innerHTML = `<tr id="empty-state"><td colspan="4" class="p-6 text-center text-gray-500 text-xs">Queue is empty. Drop BeamNG vehicle ZIP archives above.</td></tr>`;
+                batchActions.classList.add('hidden');
+                return;
+            }
+
+            queueList.innerHTML = '';
+            let hasCompleted = false;
+
+            fileQueue.forEach((item, idx) => {
+                if (item.status === 'Completed') hasCompleted = true;
+                const tr = document.createElement('tr');
+                tr.className = `cursor-pointer transition hover:bg-[#313244]/40 ${selectedIndex === idx ? 'bg-[#313244]/70 font-semibold' : ''}`;
+                tr.onclick = () => selectItem(idx);
+
+                const sizeMb = (item.file.size / (1024 * 1024)).toFixed(2);
+                const badge = item.status === 'Completed'
+                    ? `<span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">Scaled ✅</span>`
+                    : (item.status === 'Processing' 
+                        ? `<span class="bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">Patching...</span>`
+                        : `<span class="bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded text-[10px]">Queued</span>`);
+
+                tr.innerHTML = `
+                    <td class="p-2 text-white truncate max-w-[200px]" title="${item.file.name}">
+                        <i class="fa-solid fa-file-zipper text-indigo-400 mr-1.5"></i> ${item.file.name}
+                    </td>
+                    <td class="p-2 text-gray-400 font-mono text-[11px]">${sizeMb} MB</td>
+                    <td class="p-2">${badge}</td>
+                    <td class="p-2 text-right">
+                        ${item.modifiedBlob ? `<button onclick="downloadSingle(event, ${idx})" class="text-indigo-400 hover:text-indigo-300 font-bold text-[11px]"><i class="fa-solid fa-download"></i> Save</button>` : ''}
+                    </td>
+                `;
+                queueList.appendChild(tr);
+            });
+
+            batchActions.classList.toggle('hidden', !hasCompleted);
+        }
+
+        async function selectItem(idx) {
+            selectedIndex = idx;
+            renderQueue();
+            const item = fileQueue[idx];
+            if (!item) return;
+
+            previewFilename.innerText = item.file.name;
+
+            // Load vehicle thumbnail quickly
+            if (!item.thumbUrl) {
+                try {
+                    const zip = await JSZip.loadAsync(item.file);
+                    for (let path of Object.keys(zip.files)) {
+                        const low = path.toLowerCase();
+                        if ((low.endsWith('.png') || low.endsWith('.jpg')) && (low.includes('preview') || low.includes('default') || low.includes('thumb'))) {
+                            const blob = await zip.files[path].async('blob');
+                            item.thumbUrl = URL.createObjectURL(blob);
+                            break;
+                        }
+                    }
+                } catch (e) { /* thumb fallback */ }
+            }
+
+            if (item.thumbUrl) {
+                vehicleThumb.src = item.thumbUrl;
+                vehicleThumb.classList.remove('hidden');
+                previewPlaceholder.classList.add('hidden');
+            } else {
+                vehicleThumb.classList.add('hidden');
+                previewPlaceholder.classList.remove('hidden');
+            }
+
+            // Update Diff Inspector
+            if (item.log) {
+                jbeamDiffCode.innerHTML = item.log;
+                inspectTag.innerText = `Diff Inspector: ${item.file.name}`;
+            } else {
+                jbeamDiffCode.innerHTML = `<span class="text-gray-500">// File "${item.file.name}" queued. Click "Fast Patch JBeam Suspension" to modify variables.</span>`;
+            }
+        }
+
+        // Cleanup
+        document.getElementById('btn-clear-queue').onclick = () => {
+            fileQueue.forEach(i => { if (i.thumbUrl) URL.revokeObjectURL(i.thumbUrl); });
+            fileQueue.length = 0;
+            selectedIndex = -1;
+            renderQueue();
+            jbeamDiffCode.innerHTML = '// Queue cleared.';
+            vehicleThumb.classList.add('hidden');
+            previewPlaceholder.classList.remove('hidden');
+            previewFilename.innerText = 'None';
+        };
+
+        // File Downloader helpers
+        window.downloadSingle = (e, idx) => {
+            e.stopPropagation();
+            const item = fileQueue[idx];
+            if (!item?.modifiedBlob) return;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(item.modifiedBlob);
+            a.download = `stanced_${item.file.name}`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        };
+
+        btnDownloadAll.onclick = () => {
+            fileQueue.forEach((item, idx) => {
+                if (item.modifiedBlob) {
+                    setTimeout(() => downloadSingle(new MouseEvent('click'), idx), idx * 250);
+                }
+            });
+        };
+
+        // Ultra-Fast In-Place JBeam Modifier
+        document.getElementById('btn-process').onclick = async () => {
+            if (fileQueue.length === 0) {
+                statusText.innerText = 'Please drop at least one .ZIP mod.';
+                return;
+            }
+
+            const camberMult = parseFloat(inputCamber.value);
+            const heightMult = parseFloat(inputHeight.value);
+            const trackMult = parseFloat(inputTrack.value);
+            const toeFMult = parseFloat(inputToeFront.value);
+            const toeBias = parseFloat(inputToeBias.value);
+            const toeRMult = parseFloat(inputToeRear.value);
+
+            statusText.innerText = 'Modifying JBeam variables in-place...';
+
+            for (let item of fileQueue) {
+                item.status = 'Processing';
+                renderQueue();
+
+                const startTime = performance.now();
+
+                try {
+                    // Load zip metadata without extracting binary textures or models
+                    const zip = await JSZip.loadAsync(item.file);
+                    let diffLog = '';
+                    let varCount = 0;
+
+                    // Only filter JBeam files
+                    const jbeamPaths = Object.keys(zip.files).filter(p => !zip.files[p].dir && p.toLowerCase().endsWith('.jbeam'));
+
+                    const varRegex = /\[\s*"(\$[^"]+)"\s*,\s*"range"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*,\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*,\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)/g;
+
+                    for (let path of jbeamPaths) {
+                        const entry = zip.files[path];
+                        const content = await entry.async('text');
+
+                        // Quick pre-check: skip materials, sounds, and camera files
+                        if (!content.includes('"$') && !content.includes('"range"')) {
+                            continue;
+                        }
+
+                        let fileChanged = false;
+                        const modifiedContent = content.replace(varRegex, (match, name, v1Str, v2Str, v3Str) => {
+                            const low = name.toLowerCase();
+
+                            const isAlignment = low.includes('camber') || low.includes('toe') || 
+                                                low.includes('rideheight') || low.includes('height') || 
+                                                low.includes('track');
+                            if (!isAlignment) return match;
+
+                            let n1 = parseFloat(v1Str);
+                            let n2 = parseFloat(v2Str);
+                            let n3 = parseFloat(v3Str);
+
+                            let defVal, minVal, maxVal;
+                            let formatType = 'DEF_MIN_MAX';
+
+                            if (n2 < n3 && (n1 >= n2 && n1 <= n3)) {
+                                defVal = n1; minVal = n2; maxVal = n3;
+                                formatType = 'DEF_MIN_MAX';
+                            } else if (n1 < n2 && (n3 >= n1 && n3 <= n2)) {
+                                minVal = n1; maxVal = n2; defVal = n3;
+                                formatType = 'MIN_MAX_DEF';
+                            } else {
+                                const sorted = [n1, n2, n3].sort((a,b) => a - b);
+                                minVal = sorted[0]; defVal = sorted[1]; maxVal = sorted[2];
+                            }
+
+                            const origMin = minVal, origMax = maxVal, origDef = defVal;
+
+                            if (low.includes('camber')) {
+                                const range = Math.max(Math.abs(defVal - minVal), 0.015);
+                                minVal = defVal - (range * camberMult);
+                            } else if (low.includes('rideheight') || low.includes('height')) {
+                                const dropSpan = Math.max(Math.abs(defVal - minVal), 0.015);
+                                minVal = defVal - (dropSpan * heightMult);
+                                minVal = Math.max(minVal, -0.65);
+                            } else if (low.includes('track')) {
+                                const outRange = Math.max(Math.abs(maxVal - defVal), 0.015);
+                                const inRange = Math.max(Math.abs(defVal - minVal), 0.015);
+                                maxVal = defVal + (outRange * trackMult);
+                                minVal = defVal - (inRange * trackMult);
+                            } else if (low.includes('toe')) {
+                                const isFront = low.includes('f') && !low.includes('r');
+                                const mult = isFront ? toeFMult : toeRMult;
+                                if (isFront) defVal += toeBias;
+
+                                const span = Math.max(Math.abs(maxVal - defVal), Math.abs(defVal - minVal), 0.005);
+                                minVal = defVal - (span * mult);
+                                maxVal = defVal + (span * mult);
+                            }
+
+                            if (minVal > maxVal) {
+                                const t = minVal; minVal = maxVal; maxVal = t;
+                            }
+
+                            varCount++;
+                            fileChanged = true;
+
+                            diffLog += `<span class="text-indigo-400 font-bold">${name}</span>\n`;
+                            diffLog += `  <span class="diff-sub">- min: ${origMin.toFixed(4)}, max: ${origMax.toFixed(4)}, def: ${origDef.toFixed(4)}</span>\n`;
+                            diffLog += `  <span class="diff-add">+ min: ${minVal.toFixed(4)}, max: ${maxVal.toFixed(4)}, def: ${defVal.toFixed(4)}</span>\n\n`;
+
+                            if (formatType === 'DEF_MIN_MAX') {
+                                return match.replace(v1Str, defVal.toFixed(4))
+                                            .replace(v2Str, minVal.toFixed(4))
+                                            .replace(v3Str, maxVal.toFixed(4));
+                            } else {
+                                return match.replace(v1Str, minVal.toFixed(4))
+                                            .replace(v2Str, maxVal.toFixed(4))
+                                            .replace(v3Str, defVal.toFixed(4));
+                            }
+                        });
+
+                        // Overwrite only the modified file in the existing zip in-place
+                        if (fileChanged) {
+                            zip.file(path, modifiedContent);
+                        }
+                    }
+
+                    // Generate using instant STORE method (native BeamNG support, zero CPU lag)
+                    item.modifiedBlob = await zip.generateAsync({ 
+                        type: 'blob', 
+                        compression: "STORE" 
+                    });
+
+                    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                    item.status = 'Completed';
+                    item.log = (diffLog || '// No compatible suspension variables detected in this archive.') + 
+                               `\n// Processed in ${elapsed}s (${varCount} variables updated)`;
+                } catch (err) {
+                    item.status = 'Error';
+                    item.log = `// Error: ${err.message}`;
+                }
+            }
+
+            renderQueue();
+            selectItem(selectedIndex >= 0 ? selectedIndex : 0);
+            statusText.innerText = 'Suspension scaled successfully!';
+        };
+
+        window.onload = () => {
+            updateLabels();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BeamStance — Adaptive Suspension Modifier</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+    :root {
+        --bg: #0e1014;
+        --surface: #15181e;
+        --surface-2: #1a1e25;
+        --inset: #10131a;
+        --border: #262b35;
+        --border-soft: #1f242d;
+        --text: #e7eaf0;
+        --muted: #8b93a3;
+        --faint: #5b6270;
+        --accent: #7c8cff;
+        --accent-dim: rgba(124, 140, 255, 0.14);
+        --green: #4ade80;
+        --green-dim: rgba(74, 222, 128, 0.12);
+        --amber: #fbbf24;
+        --amber-dim: rgba(251, 191, 36, 0.12);
+        --red: #f87171;
+        --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- Layout ---------- */
+    .app { display: flex; flex-direction: column; height: 100vh; padding: 16px; gap: 12px; }
+    .workspace { flex: 1; display: grid; grid-template-columns: 340px 1fr; gap: 12px; min-height: 0; }
+    .sidebar { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 2px; min-height: 0; }
+    .content { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+    /* ---------- Cards ---------- */
+    .card {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+    }
+    .card-pad { padding: 14px; }
+
+    /* ---------- Header ---------- */
+    header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: var(--accent-dim); border: 1px solid rgba(124,140,255,0.25);
+        display: flex; align-items: center; justify-content: center;
+        color: var(--accent); font-size: 15px;
+    }
+    .brand h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: 0.2px; }
+    .brand p { font-size: 11px; color: var(--muted); margin: 1px 0 0; }
+    .version-tag {
+        font-size: 10px; font-family: ui-monospace, monospace;
+        color: var(--faint); background: var(--inset);
+        border: 1px solid var(--border-soft);
+        padding: 4px 8px; border-radius: 6px;
+    }
+
+    /* ---------- Section titles ---------- */
+    .section-title {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.8px; color: var(--muted); margin-bottom: 12px;
+    }
+    .section-title i { color: var(--accent); font-size: 12px; width: 14px; text-align: center; }
+    .section-title.toe i { color: var(--green); }
+
+    /* ---------- Slider rows ---------- */
+    .slider-row { margin-bottom: 14px; }
+    .slider-row:last-child { margin-bottom: 2px; }
+    .slider-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+    .slider-head label { font-size: 12px; color: var(--text); font-weight: 500; }
+    .slider-head .value { font-size: 12px; font-weight: 700; font-family: ui-monospace, monospace; color: var(--accent); }
+    .slider-row.green .slider-head .value { color: var(--green); }
+
+    input[type="range"] {
+        -webkit-appearance: none; appearance: none;
+        width: 100%; height: 4px; border-radius: 2px;
+        background: var(--border); outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none;
+        width: 14px; height: 14px; border-radius: 50%;
+        background: var(--text); border: 3px solid var(--accent);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+        transition: transform 0.12s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    input[type="range"]::-moz-range-thumb {
+        width: 14px; height: 14px; border-radius: 50%;
+        background: var(--text); border: 3px solid var(--accent);
+    }
+    .slider-row.green input[type="range"]::-webkit-slider-thumb { border-color: var(--green); }
+    .slider-row.green input[type="range"]::-moz-range-thumb { border-color: var(--green); }
+
+    .divider { border: 0; border-top: 1px solid var(--border-soft); margin: 14px 0; }
+
+    /* ---------- Canvas ---------- */
+    .sim-box { background: var(--inset); border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px; }
+    .sim-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .sim-head span.title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--faint); }
+    .sim-readout { display: flex; gap: 10px; font-size: 10px; font-family: ui-monospace, monospace; }
+    .sim-readout .camber { color: var(--accent); }
+    .sim-readout .toe { color: var(--green); }
+    #wheel-canvas { width: 100%; height: auto; display: block; background: #0a0c10; border-radius: 8px; border: 1px solid var(--border-soft); }
+
+    /* ---------- Scope toggle ---------- */
+    .scope-row { display: flex; align-items: center; justify-content: space-between; }
+    .scope-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 500; }
+    .scope-label i { color: var(--accent); }
+    .seg {
+        display: flex; background: var(--inset); border: 1px solid var(--border-soft);
+        border-radius: 8px; padding: 3px; gap: 2px;
+    }
+    .seg button {
+        font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 6px;
+        border: 0; background: transparent; color: var(--muted); cursor: pointer;
+        transition: all 0.15s ease; font-family: inherit;
+    }
+    .seg button.active:not(:disabled) { background: var(--accent); color: #fff; }
+    .seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .seg button:not(:disabled):not(.active):hover { color: var(--text); }
+
+    /* ---------- Buttons ---------- */
+    .btn-primary {
+        width: 100%; padding: 12px; border: 0; border-radius: 10px;
+        background: linear-gradient(180deg, #7c8cff, #6069e8);
+        color: #fff; font-weight: 700; font-size: 12px; text-transform: uppercase;
+        letter-spacing: 1px; cursor: pointer; font-family: inherit;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        transition: all 0.15s ease; box-shadow: 0 2px 10px rgba(124,140,255,0.25);
+    }
+    .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 16px rgba(124,140,255,0.35); }
+    .btn-primary:active { transform: translateY(1px); }
+    .btn-ghost {
+        font-size: 11px; font-weight: 500; color: var(--muted);
+        border: 0; background: transparent; cursor: pointer; font-family: inherit;
+        display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px;
+        transition: all 0.15s ease;
+    }
+    .btn-ghost:hover { color: var(--text); background: var(--surface-2); }
+    .btn-ghost.danger:hover { color: var(--red); }
+
+    /* ---------- Drop zone ---------- */
+    .drop-row { display: grid; grid-template-columns: 7fr 5fr; gap: 12px; }
+    .drop-zone {
+        border: 1.5px dashed var(--border); border-radius: var(--radius);
+        background: var(--surface); display: flex; align-items: center; justify-content: center;
+        gap: 14px; cursor: pointer; padding: 18px; transition: all 0.2s ease;
+    }
+    .drop-zone:hover { border-color: var(--accent); background: var(--surface-2); }
+    .drop-zone.active { border-color: var(--accent); background: var(--accent-dim); border-style: solid; }
+    .drop-zone .dz-icon {
+        width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+        background: var(--accent-dim); color: var(--accent);
+        display: flex; align-items: center; justify-content: center; font-size: 18px;
+        transition: transform 0.2s ease;
+    }
+    .drop-zone:hover .dz-icon { transform: scale(1.08); }
+    .drop-zone p { margin: 0; }
+    .drop-zone .dz-title { font-size: 13px; font-weight: 600; }
+    .drop-zone .dz-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .preview-card { display: flex; flex-direction: column; padding: 12px; }
+    .preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .preview-head .title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--faint); display: flex; align-items: center; gap: 6px; }
+    .preview-head .title i { color: var(--accent); }
+    #preview-filename { font-size: 10px; font-family: ui-monospace, monospace; color: var(--muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .preview-frame {
+        flex: 1; min-height: 56px; background: var(--inset); border-radius: 8px;
+        border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .preview-frame i { color: var(--faint); font-size: 22px; }
+    .preview-frame img { max-height: 100%; max-width: 100%; object-fit: contain; }
+
+    /* ---------- Queue ---------- */
+    .queue-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 120px; }
+    .queue-head {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 14px; border-bottom: 1px solid var(--border-soft);
+    }
+    .queue-head .title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .queue-head .title i { color: var(--accent); }
+    .queue-actions { display: flex; gap: 4px; }
+    .queue-scroll { flex: 1; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th {
+        text-align: left; padding: 8px 14px; font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.6px; color: var(--faint);
+        border-bottom: 1px solid var(--border-soft); position: sticky; top: 0; background: var(--surface);
+    }
+    tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border-soft); }
+    tbody tr { cursor: pointer; transition: background 0.12s ease; }
+    tbody tr:hover { background: var(--surface-2); }
+    tbody tr.selected { background: var(--accent-dim); }
+    tbody tr.selected td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+    .file-cell { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 500; }
+    .file-cell i { color: var(--accent); font-size: 11px; }
+    .file-cell .tag { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.4px; }
+    .tag.global { color: var(--faint); background: var(--inset); border: 1px solid var(--border-soft); }
+    .tag.custom { color: var(--amber); background: var(--amber-dim); }
+    .size-cell { color: var(--muted); font-family: ui-monospace, monospace; font-size: 11px; }
+    .pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; display: inline-block; }
+    .pill.ok { color: var(--green); background: var(--green-dim); }
+    .pill.pending { color: var(--amber); background: var(--amber-dim); }
+    .pill.error { color: var(--red); background: rgba(248,113,113,0.12); }
+    .dl-link { color: var(--accent); font-size: 11px; font-weight: 600; text-decoration: none; }
+    .dl-link:hover { text-decoration: underline; }
+    .empty-state { text-align: center; color: var(--faint); font-size: 12px; padding: 28px 0 !important; }
+
+    /* ---------- Inspector ---------- */
+    .inspector { height: 150px; display: flex; flex-direction: column; overflow: hidden; }
+    .inspector-head { padding: 9px 14px; border-bottom: 1px solid var(--border-soft); }
+    .inspector-head span { font-size: 11px; font-weight: 700; color: var(--accent); font-family: ui-monospace, monospace; display: flex; align-items: center; gap: 8px; }
+    .inspector-body {
+        flex: 1; overflow-y: auto; padding: 12px 14px;
+        font-family: ui-monospace, 'Cascadia Code', monospace;
+        font-size: 11px; line-height: 1.6; color: var(--muted); background: var(--inset);
+    }
+    .inspector-body pre { margin: 0; white-space: pre-wrap; }
+
+    /* ---------- Footer ---------- */
+    footer {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 9px 16px; font-size: 11px; color: var(--muted);
+    }
+    footer .status { display: flex; align-items: center; gap: 8px; }
+    footer .status i { color: var(--green); font-size: 9px; }
+
+    /* ---------- Scrollbars ---------- */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #333a47; }
+</style>
+</head>
+<body>
+<div class="app">
+
+    <!-- Header -->
+    <header class="card">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-sliders"></i></div>
+            <div>
+                <h1>BeamStance</h1>
+                <p>Proportional scaling & real-time JBeam geometry modification</p>
+            </div>
+        </div>
+        <span class="version-tag">v4.3</span>
+    </header>
+
+    <div class="workspace">
+
+        <!-- Left: Controls -->
+        <aside class="sidebar">
+            <div class="card card-pad">
+                <div class="section-title"><i class="fa-solid fa-screwdriver-wrench"></i> Scaling Factors</div>
+
+                <div class="slider-row">
+                    <div class="slider-head">
+                        <label for="input-camber">Negative Camber</label>
+                        <span id="val-camber" class="value">1.0x</span>
+                    </div>
+                    <input type="range" id="input-camber" min="1.0" max="6.0" step="0.25" value="1.0">
+                </div>
+
+                <div class="slider-row">
+                    <div class="slider-head">
+                        <label for="input-height">Ride Height Lowering</label>
+                        <span id="val-height" class="value">1.0x</span>
+                    </div>
+                    <input type="range" id="input-height" min="1.0" max="15.0" step="0.5" value="1.0">
+                </div>
+
+                <div class="slider-row">
+                    <div class="slider-head">
+                        <label for="input-track">Track Width</label>
+                        <span id="val-track" class="value">1.0x</span>
+                    </div>
+                    <input type="range" id="input-track" min="1.0" max="5.0" step="0.25" value="1.0">
+                </div>
+
+                <hr class="divider">
+
+                <div class="section-title toe"><i class="fa-solid fa-compass"></i> Toe Alignment</div>
+
+                <div class="slider-row green">
+                    <div class="slider-head">
+                        <label for="input-toe-front">Front Toe Range</label>
+                        <span id="val-toe-front" class="value">1.0x</span>
+                    </div>
+                    <input type="range" id="input-toe-front" min="1.0" max="5.0" step="0.25" value="1.0">
+                </div>
+
+                <div class="slider-row green">
+                    <div class="slider-head">
+                        <label for="input-toe-bias">Front Toe Base Correction</label>
+                        <span id="val-toe-bias" class="value">0.0000 (Neutral)</span>
+                    </div>
+                    <input type="range" id="input-toe-bias" min="-0.010" max="0.010" step="0.0005" value="0.0000">
+                </div>
+
+                <div class="slider-row green">
+                    <div class="slider-head">
+                        <label for="input-toe-rear">Rear Toe Range</label>
+                        <span id="val-toe-rear" class="value">1.0x</span>
+                    </div>
+                    <input type="range" id="input-toe-rear" min="1.0" max="5.0" step="0.25" value="1.0">
+                </div>
+            </div>
+
+            <div class="card card-pad">
+                <div class="sim-box">
+                    <div class="sim-head">
+                        <span class="title">Live Geometry</span>
+                        <div class="sim-readout">
+                            <span id="sim-camber-deg" class="camber">-2.8° | 0.0px</span>
+                            <span id="sim-toe-deg" class="toe">0.0°</span>
+                        </div>
+                    </div>
+                    <canvas id="wheel-canvas" width="280" height="130"></canvas>
+                </div>
+            </div>
+
+            <div class="card card-pad">
+                <div class="scope-row">
+                    <div class="scope-label"><i class="fa-solid fa-layer-group"></i> Settings Scope</div>
+                    <div class="seg">
+                        <button id="scope-global" class="active">Global</button>
+                        <button id="scope-file" disabled>Per File</button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-process" class="btn-primary"><i class="fa-solid fa-bolt"></i> Apply Smart Scaling</button>
+        </aside>
+
+        <!-- Right: Workspace -->
+        <div class="content">
+
+            <div class="drop-row">
+                <div id="drop-card" class="drop-zone">
+                    <div class="dz-icon"><i class="fa-solid fa-file-zipper"></i></div>
+                    <div>
+                        <p class="dz-title">Drag & drop vehicle .zip mods</p>
+                        <p class="dz-sub">or click to browse archives</p>
+                    </div>
+                    <input type="file" id="file-input" multiple accept=".zip,application/zip,application/x-zip-compressed" class="hidden" style="display:none">
+                </div>
+
+                <div class="card preview-card">
+                    <div class="preview-head">
+                        <span class="title"><i class="fa-solid fa-image"></i> Vehicle Preview</span>
+                        <span id="preview-filename">No file</span>
+                    </div>
+                    <div class="preview-frame">
+                        <i id="preview-placeholder-icon" class="fa-solid fa-car"></i>
+                        <img id="vehicle-thumb" alt="Vehicle Thumbnail" style="display:none">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card queue-card">
+                <div class="queue-head">
+                    <span class="title"><i class="fa-solid fa-list-check"></i> Archive Queue</span>
+                    <div class="queue-actions">
+                        <button id="btn-link-all" class="btn-ghost" title="Sync all files to current global sliders"><i class="fa-solid fa-rotate"></i> Reset All to Global</button>
+                        <button id="btn-clear-queue" class="btn-ghost danger"><i class="fa-solid fa-trash"></i> Clear</button>
+                    </div>
+                </div>
+                <div class="queue-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th style="width:90px">Size</th>
+                                <th style="width:110px">Status</th>
+                                <th style="width:110px; text-align:right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-list">
+                            <tr id="empty-state" style="cursor:default">
+                                <td colspan="4" class="empty-state">No archives added yet — drop files above to begin.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card inspector">
+                <div class="inspector-head"><span id="inspect-tag"><i class="fa-solid fa-code"></i> Live JBeam Diff Inspector</span></div>
+                <div class="inspector-body">
+                    <pre id="jbeam-diff-code">// Select a processed file from the queue to inspect modified JBeam variables...</pre>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer class="card">
+        <span class="status"><i class="fa-solid fa-circle"></i> <span id="status-text">Ready — drag and drop a vehicle ZIP archive to begin.</span></span>
+        <span style="color:var(--faint); font-size:10px; font-family:ui-monospace,monospace">BeamStance v4.3</span>
+    </footer>
+</div>
+
+<script>
+    // --- Per-file settings helper ---
+    function defaultSettings() {
+        return { camber: 1.0, height: 1.0, track: 1.0, toeFront: 1.0, toeBias: 0.0000, toeRear: 1.0, linked: true };
+    }
+    let globalSettings = defaultSettings();
+    let scopeMode = 'global';
+
+    // State variables
+    const fileQueue = [];
+    let selectedIndex = -1;
+
+    // DOM Element Selectors
+    const dropCard = document.getElementById('drop-card');
+    const fileInput = document.getElementById('file-input');
+    const queueList = document.getElementById('queue-list');
+    const statusText = document.getElementById('status-text');
+    const jbeamDiffCode = document.getElementById('jbeam-diff-code');
+    const inspectTag = document.getElementById('inspect-tag');
+    const vehicleThumb = document.getElementById('vehicle-thumb');
+    const previewPlaceholderIcon = document.getElementById('preview-placeholder-icon');
+    const previewFilename = document.getElementById('preview-filename');
+    const scopeGlobalBtn = document.getElementById('scope-global');
+    const scopeFileBtn = document.getElementById('scope-file');
+    const btnLinkAll = document.getElementById('btn-link-all');
+
+    // Input Controls
+    const inputCamber = document.getElementById('input-camber');
+    const inputHeight = document.getElementById('input-height');
+    const inputTrack = document.getElementById('input-track');
+    const inputToeFront = document.getElementById('input-toe-front');
+    const inputToeBias = document.getElementById('input-toe-bias');
+    const inputToeRear = document.getElementById('input-toe-rear');
+
+    // Canvas for simulation preview
+    const wheelCanvas = document.getElementById('wheel-canvas');
+    const ctx = wheelCanvas ? wheelCanvas.getContext('2d') : null;
+
+    // --- BULLETPROOF DRAG & DROP EVENT HANDLERS ---
+    dropCard.addEventListener('click', () => {
+        fileInput.value = '';
+        fileInput.click();
+    });
+
+    // Prevent browser from opening dropped files globally
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('drop', (e) => e.preventDefault(), false);
+
+    dropCard.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dropCard.classList.add('active');
+    });
+
+    dropCard.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropCard.classList.add('active');
+    });
+
+    dropCard.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropCard.classList.remove('active');
+    });
+
+    dropCard.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropCard.classList.remove('active');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFiles(e.dataTransfer.files);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            handleFiles(e.target.files);
+        }
+    });
+
+    function handleFiles(files) {
+        let addedCount = 0;
+        for (let file of files) {
+            if (file.name.toLowerCase().endsWith('.zip') || file.type.includes('zip')) {
+                fileQueue.push({ file: file, status: 'Pending', modifiedBlob: null, log: '', previewUrl: null, settings: defaultSettings() });
+                addedCount++;
+            }
+        }
+        if (addedCount > 0) {
+            renderQueue();
+            selectItem(fileQueue.length - 1);
+            statusText.innerText = `Added ${addedCount} archive(s). Click Apply to process.`;
+        } else {
+            statusText.innerText = 'Please select valid .ZIP archive files.';
+        }
+    }
+
+    // --- Slider label + scope helpers ---
+    function readSliders() {
+        return {
+            camber: parseFloat(inputCamber.value),
+            height: parseFloat(inputHeight.value),
+            track: parseFloat(inputTrack.value),
+            toeFront: parseFloat(inputToeFront.value),
+            toeBias: parseFloat(inputToeBias.value),
+            toeRear: parseFloat(inputToeRear.value),
+            linked: scopeMode === 'global'
+        };
+    }
+
+    function writeSliders(s) {
+        inputCamber.value = s.camber;
+        inputHeight.value = s.height;
+        inputTrack.value = s.track;
+        inputToeFront.value = s.toeFront;
+        inputToeBias.value = s.toeBias;
+        inputToeRear.value = s.toeRear;
+        updateLabels();
+        drawWheelSimulation();
+    }
+
+    function updateLabels() {
+        document.getElementById('val-camber').innerText = inputCamber.value + 'x';
+        document.getElementById('val-height').innerText = inputHeight.value + 'x';
+        document.getElementById('val-track').innerText = inputTrack.value + 'x';
+        document.getElementById('val-toe-front').innerText = inputToeFront.value + 'x';
+        const biasVal = parseFloat(inputToeBias.value);
+        const biasText = biasVal > 0 ? `+${biasVal.toFixed(4)} (Toe-In)` : (biasVal < 0 ? `${biasVal.toFixed(4)} (Toe-Out)` : '0.0000 (Neutral)');
+        document.getElementById('val-toe-bias').innerText = biasText;
+        document.getElementById('val-toe-rear').innerText = inputToeRear.value + 'x';
+    }
+
+    function setScope(mode) {
+        scopeMode = mode;
+        scopeGlobalBtn.classList.toggle('active', mode === 'global');
+        scopeFileBtn.classList.toggle('active', mode === 'file');
+        scopeFileBtn.disabled = mode === 'global';
+        if (mode === 'global') {
+            writeSliders(globalSettings);
+        } else {
+            const item = fileQueue[selectedIndex];
+            if (item) writeSliders(item.settings.linked ? globalSettings : item.settings);
+        }
+        renderQueue();
+    }
+
+    scopeGlobalBtn.addEventListener('click', () => setScope('global'));
+    scopeFileBtn.addEventListener('click', () => { if (selectedIndex >= 0) setScope('file'); });
+
+    // Input Slider Listeners
+    [inputCamber, inputHeight, inputTrack, inputToeFront, inputToeBias, inputToeRear].forEach(el => {
+        el.addEventListener('input', () => {
+            updateLabels();
+            drawWheelSimulation();
+            if (scopeMode === 'global') {
+                globalSettings = readSliders();
+                fileQueue.forEach(item => {
+                    if (item.settings.linked) item.settings = { ...globalSettings, linked: true };
+                });
+            } else if (selectedIndex >= 0) {
+                const item = fileQueue[selectedIndex];
+                if (item) {
+                    item.settings = { ...readSliders(), linked: false };
+                    renderQueue();
+                }
+            }
+        });
+    });
+
+    // Render geometry visualizer on canvas
+    function drawWheelSimulation() {
+        if (!ctx) return;
+        const w = wheelCanvas.width;
+        const h = wheelCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const camberFactor = parseFloat(inputCamber.value);
+        const trackFactor = parseFloat(inputTrack.value);
+        const heightFactor = parseFloat(inputHeight.value);
+        const toeBias = parseFloat(inputToeBias.value);
+        const toeFrontFactor = parseFloat(inputToeFront.value);
+
+        // Left Half: Front View
+        const leftCenterX = 70;
+        const groundY = 110;
+
+        ctx.strokeStyle = '#2a3040';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(10, groundY);
+        ctx.lineTo(130, groundY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#5b6270';
+        ctx.font = '9px monospace';
+        ctx.fillText('CAMBER / HEIGHT', 15, 18);
+
+        const camberAngle = (camberFactor * 2.8) * (Math.PI / 180);
+        const trackOffset = (trackFactor - 1.0) * 8;
+        const heightOffset = (heightFactor - 1.0) * 2.5;
+
+        const totalDrop = heightOffset;
+        drawWheelFront(ctx, leftCenterX - 35 - trackOffset, groundY - 20 + totalDrop, -camberAngle);
+        drawWheelFront(ctx, leftCenterX + 35 + trackOffset, groundY - 20 + totalDrop, camberAngle);
+
+        // Right Half: Top-Down View
+        const rightCenterX = 210;
+        const topY = 65;
+
+        ctx.strokeStyle = '#2a3040';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(rightCenterX, 20);
+        ctx.lineTo(rightCenterX, 115);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#5b6270';
+        ctx.font = '9px monospace';
+        ctx.fillText('TOE (TOP-DOWN)', 160, 18);
+
+        const calculatedToeAngle = (toeBias * 1200 + (toeFrontFactor - 1.0) * 1.5) * (Math.PI / 180);
+
+        drawWheelTop(ctx, rightCenterX - 35 - trackOffset, topY, calculatedToeAngle);
+        drawWheelTop(ctx, rightCenterX + 35 + trackOffset, topY, -calculatedToeAngle);
+
+        const degText = (camberFactor * -2.8).toFixed(1) + '° | ' + ((heightFactor - 1.0) * 2.5).toFixed(1) + 'px';
+        const toeDegVal = (calculatedToeAngle * (180 / Math.PI)).toFixed(1);
+        const toeText = (toeDegVal > 0 ? '+' : '') + toeDegVal + '° ' + (toeDegVal > 0 ? 'In' : (toeDegVal < 0 ? 'Out' : 'Neu'));
+
+        document.getElementById('sim-camber-deg').innerText = degText;
+        document.getElementById('sim-toe-deg').innerText = toeText;
+    }
+
+    function drawWheelFront(c, x, y, angle) {
+        c.save();
+        c.translate(x, y);
+        c.rotate(angle);
+        c.fillStyle = '#7c8cff';
+        c.strokeStyle = '#e7eaf0';
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.roundRect(-6, -16, 12, 32, 2);
+        c.fill();
+        c.stroke();
+        c.restore();
+    }
+
+    function drawWheelTop(c, x, y, angle) {
+        c.save();
+        c.translate(x, y);
+        c.rotate(angle);
+        c.fillStyle = '#4ade80';
+        c.strokeStyle = '#e7eaf0';
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.roundRect(-5, -14, 10, 28, 2);
+        c.fill();
+        c.stroke();
+
+        c.strokeStyle = '#0a0c10';
+        c.beginPath();
+        c.moveTo(0, -10);
+        c.lineTo(0, 10);
+        c.stroke();
+
+        c.restore();
+    }
+
+    function renderQueue() {
+        if (fileQueue.length === 0) {
+            queueList.innerHTML = `
+                <tr id="empty-state" style="cursor:default">
+                    <td colspan="4" class="empty-state">No archives added yet — drop files above to begin.</td>
+                </tr>`;
+            return;
+        }
+
+        queueList.innerHTML = '';
+        fileQueue.forEach((item, idx) => {
+            const tr = document.createElement('tr');
+            tr.className = selectedIndex === idx ? 'selected' : '';
+            tr.onclick = () => selectItem(idx);
+
+            const sizeMb = (item.file.size / (1024 * 1024)).toFixed(2);
+            let statusBadge;
+            if (item.status === 'Smart Scaled ✅') {
+                statusBadge = `<span class="pill ok">Scaled</span>`;
+            } else if (item.status === 'Error') {
+                statusBadge = `<span class="pill error">Error</span>`;
+            } else {
+                statusBadge = `<span class="pill pending">${item.status}</span>`;
+            }
+
+            const scopeTag = item.settings.linked
+                ? `<span class="tag global">GLOBAL</span>`
+                : `<span class="tag custom">CUSTOM</span>`;
+
+            tr.innerHTML = `
+                <td><div class="file-cell"><i class="fa-solid fa-file-archive"></i> ${item.file.name} ${scopeTag}</div></td>
+                <td class="size-cell">${sizeMb} MB</td>
+                <td>${statusBadge}</td>
+                <td style="text-align:right">
+                    ${item.modifiedBlob ? `<a href="${URL.createObjectURL(item.modifiedBlob)}" download="scaled_${item.file.name}" class="dl-link">Download</a>` : ''}
+                </td>
+            `;
+            queueList.appendChild(tr);
+        });
+    }
+
+    async function selectItem(idx) {
+        selectedIndex = idx;
+        renderQueue();
+        const item = fileQueue[idx];
+        if (!item) return;
+
+        previewFilename.innerText = item.file.name;
+        scopeFileBtn.disabled = false;
+
+        try {
+            const zip = await JSZip.loadAsync(item.file);
+            let foundImg = null;
+
+            for (let filename of Object.keys(zip.files)) {
+                const fnLower = filename.toLowerCase();
+                if (fnLower.endsWith('.png') || fnLower.endsWith('.jpg') || fnLower.endsWith('.jpeg')) {
+                    if (fnLower.includes('preview') || fnLower.includes('default') || fnLower.includes('icon') || fnLower.includes('thumbnail')) {
+                        foundImg = zip.files[filename];
+                        break;
+                    } else if (!foundImg) {
+                        foundImg = zip.files[filename];
+                    }
+                }
+            }
+
+            if (foundImg) {
+                const blob = await foundImg.async('blob');
+                vehicleThumb.src = URL.createObjectURL(blob);
+                vehicleThumb.style.display = 'block';
+                previewPlaceholderIcon.style.display = 'none';
+            } else {
+                vehicleThumb.style.display = 'none';
+                previewPlaceholderIcon.style.display = 'block';
+            }
+        } catch (err) {
+            vehicleThumb.style.display = 'none';
+            previewPlaceholderIcon.style.display = 'block';
+        }
+
+        if (item.log) {
+            jbeamDiffCode.innerText = item.log;
+            inspectTag.innerHTML = `<i class="fa-solid fa-code"></i> ${item.file.name}`;
+        } else {
+            jbeamDiffCode.innerText = `// Mod file selected: ${item.file.name}\n// Click "Apply Smart Scaling" to process and view modified JBeam variables.`;
+        }
+
+        if (scopeMode === 'file') {
+            writeSliders(item.settings.linked ? globalSettings : item.settings);
+        }
+    }
+
+    document.getElementById('btn-clear-queue').addEventListener('click', () => {
+        fileQueue.length = 0;
+        selectedIndex = -1;
+        renderQueue();
+        jbeamDiffCode.innerText = '// Queue cleared.';
+        inspectTag.innerHTML = `<i class="fa-solid fa-code"></i> Live JBeam Diff Inspector`;
+        previewFilename.innerText = 'No file';
+        vehicleThumb.style.display = 'none';
+        previewPlaceholderIcon.style.display = 'block';
+        setScope('global');
+        statusText.innerText = 'Queue cleared.';
+    });
+
+    btnLinkAll.addEventListener('click', () => {
+        if (fileQueue.length === 0) { statusText.innerText = 'Queue is empty.'; return; }
+        globalSettings = readSliders();
+        fileQueue.forEach(item => { item.settings = { ...globalSettings, linked: true }; });
+        renderQueue();
+        statusText.innerText = 'All files reset to current global settings.';
+    });
+
+    // Process button algorithm handler
+    document.getElementById('btn-process').addEventListener('click', async () => {
+        if (fileQueue.length === 0) {
+            statusText.innerText = 'Please add a ZIP file to process.';
+            return;
+        }
+
+        statusText.innerText = 'Processing JBeam suspension variables...';
+
+        for (let item of fileQueue) {
+            const s = item.settings.linked ? { ...globalSettings, linked: true } : item.settings;
+            const camberMult = s.camber;
+            const heightMult = s.height;
+            const trackMult = s.track;
+            const toeFrontMult = s.toeFront;
+            const toeBias = s.toeBias;
+            const toeRearMult = s.toeRear;
+
+            try {
+                const zip = await JSZip.loadAsync(item.file);
+                const newZip = new JSZip();
+                let logText = `// Baseline vs Scaled Suspension Variables for ${item.file.name}\n`;
+                logText += `// Settings: Camber ${camberMult}x | Height ${heightMult}x | Track ${trackMult}x | ToeF ${toeFrontMult}x | ToeBias ${toeBias.toFixed(4)} | ToeR ${toeRearMult}x\n\n`;
+                let varsModified = 0;
+
+                const fileKeys = Object.keys(zip.files);
+                for (let relativePath of fileKeys) {
+                    const zipObj = zip.files[relativePath];
+                    if (zipObj.dir) continue;
+
+                    const pathLower = relativePath.toLowerCase();
+
+                    const isSuspensionFile = pathLower.endsWith('.jbeam') && (
+                        pathLower.includes('suspension') ||
+                        pathLower.includes('steering') ||
+                        pathLower.includes('alignment') ||
+                        pathLower.includes('coilovers') ||
+                        pathLower.includes('struts') ||
+                        pathLower.includes('hub')
+                    );
+
+                    if (isSuspensionFile) {
+                        const content = await zipObj.async('text');
+
+                        const pattern = /(\[\s*"(\$[^"]+)"\s*,\s*"range"\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*)([-+]?\d*\.?\d+)(\s*,\s*)([-+]?\d*\.?\d+)(\s*,\s*)([-+]?\d*\.?\d+)/g;
+
+                        const newContent = content.replace(pattern, (match, prefix, varName, defaultStr, sep1, minStr, sep2, maxStr) => {
+                            let origDefault = defaultStr;
+                            let origMin = minStr;
+                            let origMax = maxStr;
+
+                            let defaultVal = parseFloat(defaultStr);
+                            let minVal = parseFloat(minStr);
+                            let maxVal = parseFloat(maxStr);
+                            const varLower = varName.toLowerCase();
+
+                            const isStanceVar = (varLower.includes('camber') ||
+                                                varLower.includes('rideheight') ||
+                                                varLower.includes('height') ||
+                                                varLower.includes('track') ||
+                                                varLower.includes('toe')) &&
+                                                !varLower.includes('rally') &&
+                                                !varLower.includes('offroad') &&
+                                                !varLower.includes('drifter');
+
+                            if (!isStanceVar) {
+                                return match;
+                            }
+
+                            let newMin = minVal;
+                            let newMax = maxVal;
+
+                            if (varLower.includes('camber')) {
+                                const negRange = defaultVal - minVal;
+                                newMin = defaultVal - (Math.max(negRange, 0.01) * camberMult);
+                                newMin = Math.max(newMin, -0.22);
+                            }
+                            else if (varLower.includes('rideheight') || varLower.includes('height')) {
+                                const dropRange = defaultVal - minVal;
+                                newMin = defaultVal - (Math.max(dropRange, 0.01) * heightMult);
+                                newMin = Math.max(newMin, -0.65);
+                            }
+                            else if (varLower.includes('track')) {
+                                const outwardRange = maxVal - defaultVal;
+                                const inwardRange = defaultVal - minVal;
+                                newMax = defaultVal + (Math.max(outwardRange, 0.01) * trackMult);
+                                newMin = defaultVal - (Math.max(inwardRange, 0.01) * trackMult);
+                            }
+                            else if (varLower.includes('toe')) {
+                                const isFront = varLower.includes('f');
+                                const mult = isFront ? toeFrontMult : toeRearMult;
+
+                                if (isFront) {
+                                    defaultVal = defaultVal + toeBias;
+                                }
+
+                                const toeRange = Math.max(Math.abs(defaultVal - minVal), Math.abs(maxVal - defaultVal), 0.005);
+                                newMin = defaultVal - (toeRange * mult);
+                                newMax = defaultVal + (toeRange * mult);
+                            }
+
+                            varsModified++;
+                            logText += `${varName}:\n` +
+                                       `  Baseline -> default: ${origDefault}, min: ${origMin}, max: ${origMax}\n` +
+                                       `  Scaled   -> default: ${defaultVal.toFixed(4)}, min: ${newMin.toFixed(4)}, max: ${newMax.toFixed(4)}\n\n`;
+
+                            return `${prefix}${defaultVal.toFixed(4)}${sep1}${newMin.toFixed(4)}${sep2}${newMax.toFixed(4)}`;
+                        });
+
+                        newZip.file(relativePath, newContent);
+                    } else {
+                        const blob = await zipObj.async('blob');
+                        newZip.file(relativePath, blob);
+                    }
+                }
+
+                const modifiedBlob = await newZip.generateAsync({ type: 'blob' });
+                item.modifiedBlob = modifiedBlob;
+                item.status = 'Smart Scaled ✅';
+                item.log = logText + `// Total variables updated: ${varsModified}`;
+
+            } catch (err) {
+                item.status = 'Error';
+                item.log = `// Error parsing archive: ${err.message}`;
+            }
+        }
+
+        renderQueue();
+        selectItem(selectedIndex >= 0 ? selectedIndex : 0);
+        statusText.innerText = 'BeamStance suspension scaling applied successfully!';
+    });
+
+    window.onload = () => {
+        drawWheelSimulation();
+    };
+</script>
+</body>
+</html>
